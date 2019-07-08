@@ -4,8 +4,12 @@ import scipy as sp
 train = pd.read_csv("train.csv")
 test = pd.read_csv("test.csv")
 from sklearn.preprocessing import StandardScaler
-scaler = StandardScaler()
-
+from sklearn.compose import ColumnTransformer
+temp = train[train.budget>0]
+transformer = ColumnTransformer([
+    ('trans', StandardScaler(),['budget'])], remainder='passthrough')
+transformed_budget = transformer.fit_transform(temp)
+transformed_budget[].merge(train)
 standardized_features = scaler.fit_transform(train[['popularity','revenue','runtime']])
 import datawig
 df_train, df_test = datawig.utils.random_split(train)
