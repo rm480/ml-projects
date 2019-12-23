@@ -2,9 +2,10 @@
 
 from jikanpy import Jikan
 import numpy as np
+import time
 jikan = Jikan()
 anime = [None]*2
-anime = jikan.anime(12500) #1-10507
+anime = jikan.anime(39597) #1-10507 + 30000 smth take ids from seasons below
 
 years = range(2017,2019)
 winter = [jikan.season(year=Y, season='winter') for Y in years]
