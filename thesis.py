@@ -1,5 +1,13 @@
 #hawkes process
 
+import GetOldTweets3 as got
+import pandas as pd
+tweetCriteria = got.manager.TweetCriteria().setQuerySearch('unicredit')\
+    .setSince("2019-12-10").setUntil("2019-12-11")
+tweet = got.manager.TweetManager.getTweets(tweetCriteria)
+tweet_date = [tweet[i].date for i in range(len(tweet))]
+tweet_date_df = pd.DataFrame(tweet_date)
+tweet_date_df.to_csv(path_or_buf='C:\\Users\\linai\\Documents\\tweets\\@1012.csv', index=False)
 
 
 from tick.hawkes import HawkesExpKern, HawkesEM
