@@ -61,7 +61,8 @@ for i in errors:
 import pandas as pd
 import numpy as np
 import pickle
-from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder
+from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder, StandardScaler
+from sklearn.pipeline import Pipeline
 with open('anime.data', 'rb') as filehandle:
     anime = pickle.load(filehandle)
 anime_pd = pd.DataFrame(anime)[['title', 'type', 'source', 'episodes', 'airing', 'aired', 'duration',
@@ -91,7 +92,7 @@ for row in range(len(anime_pd['duration'])):
         anime_pd['duration'][row] = str(int(anime_pd['duration'][row].split(' ')[0])/60)
     if 'Unknown' in anime_pd['duration'][row]:
         anime_pd['duration'][row] = '25'
-cols_to_num = ['duration', 'scored_by', 'members', 'favorites', 'from']
+cols_to_num = ['duration', 'scored_by', 'members', 'favorites']
 for col in cols_to_num:
     anime_pd[col] = anime_pd[col].astype(float)
 anime_pd = pd.concat([anime_pd, anime_pd['related'].apply(pd.Series)], axis=1)
@@ -102,6 +103,15 @@ for feature in related:
         if anime_pd[feature][row] != 0:
             anime_pd[feature][row] = len(anime_pd[feature][row])
 anime_pd['season'] = (pd.to_numeric(anime_pd['from'].str.split('-', 2, expand=True)[1])%12+3)//3
+for row in range(len(anime_pd['season'])):
+    if anime_pd['season'][row]==1:
+        anime_pd['season'][row]='winter'
+    elif anime_pd['season'][row]==2:
+        anime_pd['season'][row]='spring'
+    elif anime_pd['season'][row]==3:
+        anime_pd['season'][row]='summer'
+    elif anime_pd['season'][row]==4:
+        anime_pd['season'][row]='fall'
 anime_pd['from'] = pd.to_timedelta(pd.to_datetime(anime_pd['from']), unit='d').dt.days
 anime_pd['to'] = pd.to_timedelta(pd.to_datetime(anime_pd['to']), unit='d').dt.days
 anime_pd['to'].fillna(anime_pd['from'], inplace=True)
@@ -110,14 +120,25 @@ anime_pd['opening_themes'] = pd.DataFrame([len(anime_pd.iloc[row,17])
                                            for row in range(len(anime_pd['opening_themes']))])
 anime_pd['ending_themes'] = pd.DataFrame([len(anime_pd.iloc[row,18])
                                           for row in range(len(anime_pd['ending_themes']))])
+anime_pd['from'] = anime_pd['from'].astype(float)
 cols_to_multihot = ['producers','licensors','studios','genres']
-cols_to_onehot = ['type','source','rating','season']
-one_hot = OneHotEncoder()
-mlb = MultiLabelBinarizer()
-anime_pd = pd.concat([anime_pd, pd.DataFrame(mlb.fit_transform(anime_pd[feature]))], axis=1)
+temp = [['episodes','duration','scored_by','members','favorites'],
+                 list(anime_pd.loc[:,'opening_themes':'Spin-off'].columns)]
+cols_to_num = [item for elem in temp for item in elem]
+cols_to_onehot = ['type','source','rating', 'season']
+one_hot = OneHotEncoder(sparse=False)
+mlb1 = MultiLabelBinarizer(sparse_output=False)
+mlb2 = MultiLabelBinarizer(sparse_output=False)
+mlb3 = MultiLabelBinarizer(sparse_output=False)
+mlb4 = MultiLabelBinarizer(sparse_output=False)
+scaler = StandardScaler()
+anime_train = pd.concat([pd.DataFrame(anime_pd.index,columns=['index']),
+    pd.DataFrame(scaler.fit_transform(anime_pd[cols_to_num]),columns=cols_to_num),
+        pd.DataFrame(one_hot.fit_transform(anime_pd[cols_to_onehot]),
+        columns=[item for elem in one_hot.categories_ for item in elem]),
+            pd.DataFrame(mlb1.fit_transform(anime_pd['producers']),columns=mlb1.classes_),
+                pd.DataFrame(mlb2.fit_transform(anime_pd['licensors']),columns=mlb2.classes_),
+                    pd.DataFrame(mlb3.fit_transform(anime_pd['studios']),columns=mlb3.classes_),
+                        pd.DataFrame(mlb4.fit_transform(anime_pd['genres']),columns=mlb4.classes_)],
+                            axis=1, sort=False)
 
-
-
-test=one_hot.fit_transform(anime_pd[['type']])
-anime_pd['rating'].unique()
-anime_pd['to'].isna().sum()
