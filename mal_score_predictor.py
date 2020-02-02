@@ -218,8 +218,18 @@ with open('train.data', 'rb') as filehandle:
     train = pickle.load(filehandle)
 with open('test.data', 'rb') as filehandle:
     test = pickle.load(filehandle)
-train = bag[train['index']]
-test = bag[test['index']]
-from keras.models import Sequential
-from keras.layers import Dense
-
+x_train = bag[train['index']]
+x_test = bag[test['index']]
+y_train = train['score']
+y_test = test['score']
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+model = Sequential()
+model.add(Dense(100, input_dim=10885, activation='relu'))
+model.add(Dense(50, activation='relu'))
+model.add(Dense(1))
+model.compile(optimizer='adam',
+             loss='mean_squared_logarithmic_error',
+             metrics=['accuracy'])
+model.fit(x_train, y_train, batch_size=50, epochs=100)
+pred = model.predict(x_test)
