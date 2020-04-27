@@ -7,11 +7,6 @@ tweet_date = [tweet[i].date for i in range(len(tweet))]
 tweet_date_df = pd.DataFrame(tweet_date)
 tweet_date_df.to_csv(path_or_buf='C:\\Users\\linai\\Documents\\tweets\\@2012.csv', index=False)
 
-import numpy as np
-import pandas as pd
-from scipy.optimize import minimize, check_grad
-import matplotlib.pyplot as plt
-time = pd.read_csv('timestamp.csv').to_numpy().transpose().flatten().astype(float)/60
 
 def univariateHLL(params, omega, seq, sign=1.0, verbose=False):
 	""" (Negative) Log-likelihood """
@@ -61,28 +56,8 @@ hawkes_learner = HawkesExpKern(beta, gofit='likelihood', penalty='l2', C=100, to
 hawkes_learner.fit(time)
 hawkes_learner.coeffs
 
-def kernel(x,y,b):
-	""" calculates the exponentially decay kernel for difference of x-y with bandwidth b"""
-	return np.exp(-b * (x-y))
 def mykernel(x,y,b):
 	return (x-y)*np.exp(-b * (x-y))
-
-def myHLL(params, seq, sign=1.0, verbose=False):
-	""" (Negative) Log-likelihood """
-	mu, alpha, beta = params[0], params[1], params[2]
-	last = seq[-1]
-	constant_survival = last * mu
-	updating_survival, occurrence_likelihood, A = 0.0, 0.0, 0.0
-	epsilon = 1e-50
-	prev = -np.inf
-	for curr in seq:
-		A = kernel(curr, prev, beta) * A
-		updating_survival += (kernel(last, curr, beta) - 1)
-		occurrence_likelihood += np.log(mu + alpha * A + epsilon)
-		A += 1
-		prev = curr
-	ll = sign * (-constant_survival + (alpha/beta) * updating_survival + occurrence_likelihood)
-	return ll
 
 def derivative(params, sign=1.0, verbose=False): #seq
 	mu, alpha, beta = params[0], params[1], params[2]
@@ -113,6 +88,33 @@ def derivative(params, sign=1.0, verbose=False): #seq
 	der[2] = -(alpha/beta) * beta_term_first - alpha * beta_term_second
 	return der
 
+#start here
+import numpy as np
+import pandas as pd
+from scipy.optimize import minimize
+import matplotlib.pyplot as plt
+time = pd.read_csv('timestamp.csv').to_numpy().transpose().flatten().astype(float)/60
+
+def kernel(x,y,b):
+	return np.exp(-b * (x-y))
+
+def myHLL(params, seq, sign=1.0, verbose=False):
+	""" (Negative) Log-likelihood """
+	mu, alpha, beta = params[0], params[1], params[2]
+	last = seq[-1]
+	constant_survival = last * mu
+	updating_survival, occurrence_likelihood, A = 0.0, 0.0, 0.0
+	epsilon = 1e-50
+	prev = -np.inf
+	for curr in seq:
+		A = kernel(curr, prev, beta) * A
+		updating_survival += (kernel(last, curr, beta) - 1)
+		occurrence_likelihood += np.log(mu + alpha * A + epsilon)
+		A += 1
+		prev = curr
+	ll = sign * (-constant_survival + (alpha/beta) * updating_survival + occurrence_likelihood)
+	return ll
+
 def myunivariate(seq, verbose=False):
 	params = [0.01, 0.03, 0.04]
 	bounds = [(0, None), (0, None), (0, None)]
@@ -129,12 +131,9 @@ def myunivariate(seq, verbose=False):
 coeffs = myunivariate(time)
 HLL = myHLL(coeffs, time)
 
-check_grad(myHLL, derivative, [0.1,0.1,0.9])
-derivative((0.01,0.01,0.9), time)
-
+#intensity
 inten = np.zeros(int(np.ceil(time[-1])))
-A = 0
-prev = 0
+A, prev = 0, 0
 for t in range(1, int(np.ceil(time[-1]))):
 	prev = time[np.where(time < t)] #time[-1] is not here
 	for T_i in prev:
@@ -145,6 +144,47 @@ fig = plt.figure()
 plt.ylabel('Intensity')
 plt.xlabel('Time in minutes')
 plt.plot(inten)
-
 del A, t, prev
+
+#compensator
+compen = np.zeros(int(np.ceil(time[-1])))
+B, prev = 0, 0
+for t in range(1, int(np.ceil(time[-1]))):
+	prev = time[np.where(time < t)] #time[-1] is not here
+	for T_i in prev:
+		B += kernel(t, T_i, coeffs[2]) - 1
+	compen[t] = t*coeffs[0] - (coeffs[1]/coeffs[2])*B
+	B = 0
+fig = plt.figure()
+plt.ylabel('Compensator')
+plt.xlabel('Time in minutes')
+plt.plot(compen)
+df = pd.DataFrame(compen)
+df.to_csv(path_or_buf='C:\\Users\\linai\\Documents\\tweets\\compensator.csv', index=False)
+
+#short intensity *redo*
+inten = np.zeros_like(time)
+A, prev, t = 0, 0, 0
+for curr in time:
+	A = kernel(curr, prev, coeffs[2]) * A
+	inten[t] = coeffs[0] + coeffs[1] * A
+	prev = curr
+	A += 1
+	t += 1
+plt.ylabel('Intensity')
+plt.xlabel('Tweets')
+plt.plot(inten)
+#short compensator
+compen = np.zeros_like(time)
+B, prev, t = 0, 0, 0
+for curr in time:
+	prev = time[time < curr]
+	for T_i in prev:
+		B += kernel(curr, T_i, coeffs[2]) - 1
+	compen[t] = curr*coeffs[0] - (coeffs[1]/coeffs[2])*B
+	t += 1
+	B = 0
+plt.plot(compen)
+df = pd.DataFrame(compen)
+df.to_csv(path_or_buf='C:\\Users\\linai\\Documents\\compensator_short.csv', index=False)
 
