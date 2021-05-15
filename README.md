@@ -1,4 +1,4 @@
 # ml-projects
-Basic practice in ML algorithms.
+Personal projects in machine learning and econometrics.
 
 
