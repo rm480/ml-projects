@@ -65,7 +65,7 @@ plt.xlabel('Seasonally adjusted time')
 plt.plot(inten)
 del A, t, prev
 
-#compensator *dont do*
+#compensator (test)
 compen = np.zeros(int(np.ceil(time[-1])))
 B, prev = 0, 0
 for t in range(1, int(np.ceil(time[-1]))):
@@ -81,7 +81,7 @@ plt.plot(compen)
 df = pd.DataFrame(compen)
 df.to_csv(path_or_buf='C:\\Users\\user\\Documents\\tweets\\adjusted_compensator.csv', index=False)
 
-#short intensity *dont do*
+#short intensity (test)
 inten = np.zeros_like(time)
 A, prev, t = 0, 0, 0
 for curr in time:
@@ -93,6 +93,7 @@ for curr in time:
 plt.ylabel('Intensity')
 plt.xlabel('Tweets')
 plt.plot(inten)
+
 #short compensator
 compen = np.zeros_like(time)
 B, prev, t = 0, 0, 0
