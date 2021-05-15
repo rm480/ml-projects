@@ -48,3 +48,17 @@ for (i in 2:N.per) {
 for (i in 2:N.per) {
   Q.mat[[i]] <- c(0,-delta.mat[[i]])
   P.mat[[i]] <- c(as.numeric(price[[i]][1]),as.numeric(price[[i]]), as.numeric(price[[i]][length(price[[i]])]))}
+for (i in 2:N.per){
+  pl.mat <- PL.fast(Q.mat[[i]], P.mat[[i]])
+  pl.vec[i] <- sum(pl.mat[1,])
+if (as.logical(forecast[[i-1]]@forecast$sigmaFor*sqrt(252)*100 > 
+  data[which(data$report_date==as.Date(unlist(attributes(forecast[[i-1]]@forecast$sigmaFor))[4])),15])) {
+  pl.derivative[i] <- q*pmax(as.numeric(price[[i]][length(price[[i]])]) - as.numeric(price[[i]][1]),0) + 
+  q*pmax(as.numeric(-price[[i]][length(price[[i]])])+as.numeric(price[[i]][1]),0) - portfolioValue.t0[i]
+}
+else {
+  pl.derivative[i] <- -(q*pmax(as.numeric(price[[i]][length(price[[i]])]) - as.numeric(price[[i]][1]),0) +
+                        q*pmax(as.numeric(-price[[i]][length(price[[i]])])+as.numeric(price[[i]][1]),0) - portfolioValue.t0[i])
+}
+net.pl[i] <- pl.vec[i] + pl.derivative[i]
+}
