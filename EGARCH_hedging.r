@@ -1,4 +1,5 @@
 ### EGARCH modelling ###
+# Choose ARIMA (p,q) and EGARCH (a,b) number of lags based on AIC #
 for (i in 1:(N.per-1)) {
 x <- array(0, dim = c(2,2,3,3))
 for (p in 1:2) {for (q in 1:2) {for(a in 1:3) {for(b in 1:3) {
@@ -9,6 +10,7 @@ for (p in 1:2) {for (q in 1:2) {for(a in 1:3) {for(b in 1:3) {
    }, 
    error=function(e){cat("ERROR :",conditionMessage(e), "\n")})}}}}
 
+  # Fit the best model, check the residuals for goodness of fit and make a forecast #
 model <- ugarchspec(variance.model = list(model ="eGARCH", 
   garchOrder = c(which(x == min(x), arr.ind = T)[1], which(x ==min(x), arr.ind = T)[2])),
   mean.model = list(armaOrder = c(which(x == min(x), arr.ind = T)[3], which(x == min(x), arr.ind = T)[4]),
@@ -21,6 +23,7 @@ forecast(fit[[i]], n.ahead = 1)
 }
 
 ### Dynamic delta hedging and trading ###
+# Create classes for call and put options #
 q=1000
 for (i in 2:N.per) {
 t1 <- new("Option", spot = as.numeric(price[[i]][1]), strike = as.numeric(price[[i]][1]), 
@@ -31,6 +34,8 @@ t2 <- new("Option", spot = as.numeric(price[[i]][1]), strike = as.numeric(price[
   rf.rate = rf.rate, div = div,
   vol = as.numeric(vol[[i]][1])/100, right = -right, quantity = 1)
 
+# Enter in a long/short position of a straddle portfolio, based on forecast results #
+# At the same time, dynamically hedge delta with a short/long asset position #
 portfolioValue.t0[i] <- q*(priceBS(t1) + priceBS(t2))
 delta.mat[[i]] <- rep(0,length(price[[i]]))
 }
@@ -45,20 +50,22 @@ for (i in 2:N.per) {
       vol = as.numeric(vol[[i]][j])/100, right = -right, quantity = 1)
       delta.mat[[i]][j] <- round(q*(deltaBS(t1) + deltaBS(t2)))}}
 
+# Calculate profit at the expiration date for each portfolio #
 for (i in 2:N.per) {
   Q.mat[[i]] <- c(0,-delta.mat[[i]])
-  P.mat[[i]] <- c(as.numeric(price[[i]][1]),as.numeric(price[[i]]), as.numeric(price[[i]][length(price[[i]])]))}
+  P.mat[[i]] <- c(as.numeric(price[[i]][1]),as.numeric(price[[i]]), as.numeric(price[[i]][length(price[[i]])]))
+}
 for (i in 2:N.per){
   pl.mat <- PL.fast(Q.mat[[i]], P.mat[[i]])
   pl.vec[i] <- sum(pl.mat[1,])
-if (as.logical(forecast[[i-1]]@forecast$sigmaFor*sqrt(252)*100 > 
-  data[which(data$report_date==as.Date(unlist(attributes(forecast[[i-1]]@forecast$sigmaFor))[4])),15])) {
-  pl.derivative[i] <- q*pmax(as.numeric(price[[i]][length(price[[i]])]) - as.numeric(price[[i]][1]),0) + 
-  q*pmax(as.numeric(-price[[i]][length(price[[i]])])+as.numeric(price[[i]][1]),0) - portfolioValue.t0[i]
-}
-else {
-  pl.derivative[i] <- -(q*pmax(as.numeric(price[[i]][length(price[[i]])]) - as.numeric(price[[i]][1]),0) +
-                        q*pmax(as.numeric(-price[[i]][length(price[[i]])])+as.numeric(price[[i]][1]),0) - portfolioValue.t0[i])
+  if (as.logical(forecast[[i-1]]@forecast$sigmaFor*sqrt(252)*100 > 
+    data[which(data$report_date==as.Date(unlist(attributes(forecast[[i-1]]@forecast$sigmaFor))[4])),15])) {
+    pl.derivative[i] <- q*pmax(as.numeric(price[[i]][length(price[[i]])]) - as.numeric(price[[i]][1]),0) + 
+    q*pmax(as.numeric(-price[[i]][length(price[[i]])])+as.numeric(price[[i]][1]),0) - portfolioValue.t0[i]
+  }
+  else {
+    pl.derivative[i] <- -(q*pmax(as.numeric(price[[i]][length(price[[i]])]) - as.numeric(price[[i]][1]),0) +
+                         q*pmax(as.numeric(-price[[i]][length(price[[i]])])+as.numeric(price[[i]][1]),0) - portfolioValue.t0[i])
 }
 net.pl[i] <- pl.vec[i] + pl.derivative[i]
 }
